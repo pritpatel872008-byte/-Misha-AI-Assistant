@@ -1,6 +1,8 @@
 package com.misha.assistant
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalBrainTest {
@@ -79,6 +81,21 @@ class LocalBrainTest {
             ContactSelectionPolicy.resolve(listOf(rahul, rahulBhai))
         )
         assertEquals(ContactResolution.NoMatch, ContactSelectionPolicy.resolve(emptyList()))
+    }
+
+    @Test fun contactMatchingRequiresExactName() {
+        assertTrue(ContactSelectionPolicy.isExactNameMatch("Rahul", "Rahul"))
+        assertTrue(ContactSelectionPolicy.isExactNameMatch("RAHUL", "rahul"))
+        assertFalse(ContactSelectionPolicy.isExactNameMatch("Rahul Bhai", "Rahul"))
+        assertFalse(ContactSelectionPolicy.isExactNameMatch("Rahul Patel", "Rahul"))
+    }
+
+    @Test fun wakeWordMatchesOnlyHeyMishaPhrase() {
+        assertTrue(WakeWordPhraseMatcher.matches("Hey Misha"))
+        assertTrue(WakeWordPhraseMatcher.matches("Hey, Misha!"))
+        assertTrue(WakeWordPhraseMatcher.matches("Okay, hey Misha please"))
+        assertFalse(WakeWordPhraseMatcher.matches("Hey machine"))
+        assertFalse(WakeWordPhraseMatcher.matches("Hello Misha"))
     }
 
 }
