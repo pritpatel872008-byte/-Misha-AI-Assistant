@@ -216,7 +216,7 @@ class WakeWordService : Service() {
 
     private fun startAsForeground() {
         val notification = buildNotification("Say “Hey Misha” to open the assistant.")
-        if (Build.VERSION.SDK_INT >= 29) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
