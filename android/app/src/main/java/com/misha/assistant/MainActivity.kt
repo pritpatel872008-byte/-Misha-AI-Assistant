@@ -478,13 +478,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             addAssistantReply("I could not read contacts on this device.")
             return
         }
-        when {
-            matches.isEmpty() -> addAssistantReply("I could not find a contact matching \"" + action.contactName + "\". Check the name and try again.")
-            matches.size == 1 -> selectContact(matches.first(), action)
-            else -> {
-                contactChoice = ContactChoiceState(matches, action, System.currentTimeMillis() + 60_000L)
-                val duplicateNames = matches.groupingBy { it.name.lowercase(Locale.ROOT) }.eachCount()
-                val options = matches.mapIndexed { index, contact ->
+        when (val resolution = ContactSelectionPolicy.resolve(matches)) {
+            ContactResolution.NoMatch ->
+                addAssistantReply("I could not find a contact matching \"" + action.contactName + "\". Check the name and try again.")
+
+            is ContactResolution.Single ->
+                selectContact(resolution.contact, action)
+
+            is ContactResolution.Multiple -> {
+                val choices = resolution.contacts
+                contactChoice = ContactChoiceState(choices, action, System.currentTimeMillis() + 60_000L)
+                val duplicateNames = choices.groupingBy { it.name.lowercase(Locale.ROOT) }.eachCount()
+                val options = choices.mapIndexed { index, contact ->
                     val suffix = if ((duplicateNames[contact.name.lowercase(Locale.ROOT)] ?: 0) > 1) {
                         " ••••" + contact.numbers.firstOrNull()?.filter(Char::isDigit)?.takeLast(4).orEmpty()
                     } else ""
