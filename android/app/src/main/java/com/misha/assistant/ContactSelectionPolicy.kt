@@ -1,5 +1,7 @@
 package com.misha.assistant
 
+import java.util.Locale
+
 internal sealed interface ContactResolution {
     data object NoMatch : ContactResolution
     data class Single(val contact: ContactMatch) : ContactResolution
@@ -17,4 +19,13 @@ internal object ContactSelectionPolicy {
             1 -> ContactResolution.Single(matches.first())
             else -> ContactResolution.Multiple(matches.toList())
         }
+
+    /** Contact lookup is exact-name only; "Rahul" must not match "Rahul Bhai". */
+    fun isExactNameMatch(displayName: String, query: String): Boolean =
+        normalize(displayName) == normalize(query)
+
+    private fun normalize(value: String): String =
+        value.lowercase(Locale.ROOT).trim()
+            .replace(Regex("[^\\p{L}\\p{N} ]"), "")
+            .replace(Regex("\\s+"), " ")
 }
