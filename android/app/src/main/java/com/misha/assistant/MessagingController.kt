@@ -4,7 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
-import androidx.appcompat.app.AlertDialog
+import android.app.AlertDialog
 import androidx.activity.ComponentActivity
 import java.util.Locale
 
@@ -37,11 +37,11 @@ internal class MessagingController(
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idIndex)
                 val name = cursor.getString(nameIndex).orEmpty()
-                val digits = name.lowercase(Locale.ROOT).filter(Char::isLetterOrDigit)
+                val digits = name.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
                 val number = cursor.getString(numberIndex).orEmpty()
                 if (query.isNotBlank() && digits.contains(query) && number.isNotBlank()) {
                     val entry = grouped.getOrPut(id) { name to mutableListOf() }
-                    if (entry.second.none { it.filter(Char::isDigit) == number.filter(Char::isDigit) }) entry.second.add(number)
+                    if (entry.second.none { it.filter { ch -> ch.isDigit() } == number.filter { it.isDigit() } }) entry.second.add(number)
                 }
             }
         }
@@ -120,7 +120,7 @@ internal class MessagingController(
     }
 
     private fun openApp(contact: Contact, number: String, message: MessageRequest) {
-        val digits = number.filter(Char::isDigit)
+        val digits = number.filter { it.isDigit() }
         val app = message.appName?.lowercase(Locale.ROOT)?.trim()
         try {
             when (app) {
