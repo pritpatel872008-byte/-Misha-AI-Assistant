@@ -220,6 +220,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 )
             }
         }
+        if (intent.getBooleanExtra(WakeWordService.EXTRA_WAKE_WORD_TRIGGERED, false)) {
+            window.decorView.post { requestListening() }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(WakeWordService.EXTRA_WAKE_WORD_TRIGGERED, false)) {
+            requestListening()
+        }
     }
 
     private fun loadPreferences() {
@@ -327,6 +338,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun requestListening() {
+        stopService(Intent(this, WakeWordService::class.java))
         if (speechRecognizer == null) {
             addAssistantReply("Speech recognition is unavailable on this device. Please type your command.")
             return
@@ -355,10 +367,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             override fun onError(error: Int) {
                 listening = false
                 statusText = "READY • LOCAL MODE"
+                startWakeWordService()
             }
             override fun onResults(results: Bundle?) {
                 listening = false
                 statusText = "READY • LOCAL MODE"
+                startWakeWordService()
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(::processCommand)
             }
             override fun onPartialResults(partialResults: Bundle?) = Unit
@@ -377,6 +391,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             listening = false
             statusText = "READY • LOCAL MODE"
             addAssistantReply("Voice input could not start. Please try again or type your command.")
+        }
+    }
+
+    private fun startWakeWordService() {
+        val prefs = getSharedPreferences("misha_settings", MODE_PRIVATE)
+        if (!prefs.getBoolean("setup_complete", false) ||
+            !prefs.getBoolean("wake_word_enabled", true) ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
+            !Settings.canDrawOverlays(this)
+        ) return
+        runCatching {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, WakeWordService::class.java).setAction("com.misha.assistant.action.RESUME_WAKE_WORD")
+            )
         }
     }
 
@@ -787,8 +816,8 @@ private fun MishaHome(
                         Text("Tap an action or say the same command.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 12.sp)
                         Spacer(Modifier.height(12.dp))
                         QuickAction("Search the web", "Search the web for Android security", Icons.Filled.Search) { onQuickCommand("Search the web for Android security") }
-                        QuickAction("Call a contact", "Call Rahul", Icons.Filled.Call) { onQuickCommand("Call Rahul") }
-                        QuickAction("Prepare a message", "Message Rahul on WhatsApp saying Hello", Icons.Filled.Message) { onQuickCommand("Message Rahul on WhatsApp saying Hello") }
+                        QuickAction("Call a contact", "Tap to speak a saved contact's exact name", Icons.Filled.Call) { onSpeak() }
+                        QuickAction("Prepare a message", "Tap to speak a saved contact's exact name", Icons.Filled.Message) { onSpeak() }
                         QuickAction("Flashlight", "Turn on the flashlight", Icons.Filled.FlashOn) { onQuickCommand("Turn on the flashlight") }
                         QuickAction("Battery", "Check battery", Icons.Filled.BatteryFull) { onQuickCommand("Check battery") }
                         QuickAction("Open YouTube", "Open YouTube", Icons.Filled.Apps) { onQuickCommand("Open YouTube") }
