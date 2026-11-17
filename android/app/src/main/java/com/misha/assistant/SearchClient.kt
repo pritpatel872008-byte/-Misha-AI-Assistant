@@ -20,7 +20,7 @@ internal data class SearchResponse(
 )
 
 internal object SearchClient {
-    private const val BACKEND = "https://misha-ai-assistant.vercel.app/api/search"
+    private const val BACKEND = "https://misha-search-backend.vercel.app/api/search"
 
     fun search(query: String, callback: (Result<SearchResponse>) -> Unit) {
         Thread {
