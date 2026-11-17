@@ -10,8 +10,8 @@ internal data class MessageRequest(
 
 internal object MessageCommandParser {
     private val patterns = listOf(
-        Regex("^(?:send|message|text)\\s+(?:a\\s+)?message\\s+to\\s+(.+?)\\s+(?:on|via|using)\\s+([a-z0-9][a-z0-9 ._-]*?)\\s+(?:saying|that says|with text|:)\\s*(.+)$", RegexOption.IGNORE_CASE),
-        Regex("^(?:send|message|text)\\s+(.+?)\\s+(?:a\\s+)?message\\s+(?:on|via|using)\\s+([a-z0-9][a-z0-9 ._-]*?)\\s+(?:saying|that says|with text|:)\\s*(.+)$", RegexOption.IGNORE_CASE)
+        Regex("^(?:send|message|text)\\s+(?:a\\s+)?message\\s+to\\s+(.+?)\\s+(?:on|via|using)\\s+([a-z0-9][a-z0-9 ._-]*?)(?:\\s+(?:saying|that says|with text)|:)\\s*(.+)$", RegexOption.IGNORE_CASE),
+        Regex("^(?:send|message|text)\\s+(.+?)\\s+(?:a\\s+)?message\\s+(?:on|via|using)\\s+([a-z0-9][a-z0-9 ._-]*?)(?:\\s+(?:saying|that says|with text)|:)\\s*(.+)$", RegexOption.IGNORE_CASE)
     )
     private val genericPatterns = listOf(
         Regex("^(?:send|message|text)\\s+(?:a\\s+)?message\\s+to\\s+(.+?)\\s*:\\s*(.+)$", RegexOption.IGNORE_CASE),
