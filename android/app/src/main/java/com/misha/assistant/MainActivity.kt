@@ -577,22 +577,50 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun launchMessageApp(appName: String, contactName: String, number: String, body: String) {
         val digits = number.filter(Char::isDigit)
-        val target = appName.lowercase(Locale.ROOT).trim()
-        val intent = when (target) {
-            "sms", "messages", "google messages", "text message" ->
-                Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number))).putExtra("sms_body", body)
-            "whatsapp", "whatsapp business" -> {
-                val pkg = if (target == "whatsapp business") "com.whatsapp.w4b" else "com.whatsapp"
-                if (packageManager.getLaunchIntentForPackage(pkg) == null) {
+        val route = MessageAppRouter.routeFor(appName)
+        val intent: Intent = when (route) {
+            MessageAppRoute.SMS ->
+                Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number)))
+                    .putExtra("sms_body", body)
+
+            MessageAppRoute.WHATSAPP,
+            MessageAppRoute.WHATSAPP_BUSINESS -> {
+                val packageName = MessageAppRouter.packageName(route)!!
+                if (packageManager.getLaunchIntentForPackage(packageName) == null) {
                     addAssistantReply(appName + " is not installed. Install it or choose another messaging app.")
                     return
                 }
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/" + digits + "?text=" + Uri.encode(body))).setPackage(pkg)
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://wa.me/" + digits + "?text=" + Uri.encode(body))
+                ).setPackage(packageName)
             }
-            "telegram" -> shareTextToPackage("org.telegram.messenger", body)
-            "signal" -> shareTextToPackage("org.thoughtcrime.securesms", body)
-            "messenger" -> shareTextToPackage("com.facebook.orca", body)
-            else -> Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body)
+
+            MessageAppRoute.TELEGRAM -> {
+                val packageName = MessageAppRouter.packageName(route)!!
+                if (packageManager.getLaunchIntentForPackage(packageName) == null) {
+                    addAssistantReply("Telegram is not installed. Install it or choose another messaging app.")
+                    return
+                }
+                val deepLink = MessageAppRouter.telegramChatUri(number, body)
+                if (deepLink == null) {
+                    addAssistantReply("This contact does not have a valid phone number for Telegram.")
+                    return
+                }
+                Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).setPackage(packageName)
+            }
+
+            MessageAppRoute.SIGNAL,
+            MessageAppRoute.MESSENGER -> {
+                val packageName = MessageAppRouter.packageName(route)!!
+                shareTextToPackage(packageName, body) ?: run {
+                    addAssistantReply(appName + " is not installed. Install it or choose another messaging app.")
+                    return
+                }
+            }
+
+            MessageAppRoute.SYSTEM_CHOOSER ->
+                Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body)
         }
 
         runCatching {
@@ -601,15 +629,29 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } else {
                 startActivity(intent)
             }
-            addAssistantReply("Message prepared for " + contactName + " in " + appName + ". Review the recipient and text in that app, then tap Send. Misha never sends messages silently.")
+            val handoffNote = when (route) {
+                MessageAppRoute.SIGNAL, MessageAppRoute.MESSENGER ->
+                    "Misha matched the contact and prepared your text. This app may ask you to choose the conversation in its own share screen."
+                MessageAppRoute.SYSTEM_CHOOSER ->
+                    "Choose the destination app and conversation in Android's share screen."
+                else ->
+                    "The selected conversation was opened with your message prefilled."
+            }
+            addAssistantReply(
+                handoffNote + " Recipient: " + contactName +
+                    ". Review the recipient and text, then tap Send. Misha never sends messages silently."
+            )
         }.onFailure {
             addAssistantReply("I could not open " + appName + ". Check that it is installed, or try Messages.")
         }
     }
 
-    private fun shareTextToPackage(packageName: String, body: String): Intent {
-        val share = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body)
-        return if (packageManager.getLaunchIntentForPackage(packageName) != null) share.setPackage(packageName) else share
+    private fun shareTextToPackage(packageName: String, body: String): Intent? {
+        if (packageManager.getLaunchIntentForPackage(packageName) == null) return null
+        return Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, body)
+            .setPackage(packageName)
     }
 
     private fun reportBattery() {
