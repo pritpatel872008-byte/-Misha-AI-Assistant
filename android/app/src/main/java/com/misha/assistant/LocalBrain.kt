@@ -23,9 +23,9 @@ internal class LocalBrain {
             "how are you" in q -> "I'm ready to help. What would you like to do?"
             "what time" in q || q == "time" -> "The time is ${SimpleDateFormat("hh:mm a", Locale.US).format(Date())}."
             "what date" in q || "today's date" in q -> "Today is ${SimpleDateFormat("EEEE, d MMMM yyyy", Locale.US).format(Date())}."
-            "help" in q || "what can you do" in q -> "I can chat offline and control your flashlight. Say: Turn on the flashlight, or Turn off the flashlight."
+            "help" in q || "what can you do" in q -> "I can chat offline, search Wikipedia online, open installed apps, and control your flashlight. Try: Search for Android security news; Open WhatsApp; Turn on the flashlight."
             "thank" in q -> "You're welcome!"
-            else -> "I don't have a reliable offline answer for that yet. Online search will be connected in a later phase."
+            else -> "I don't have a reliable offline answer for that yet. Try saying: Search for followed by your topic."
         }
     }
 }
