@@ -496,6 +496,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     )
 
     private fun resolveContactAction(action: ContactAction) {
+        contactChoice = null
+        numberChoice = null
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             pendingContactAction = action
             addAssistantReply("I need Contacts permission to find that person. Please allow it when Android asks.")
@@ -547,10 +549,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (System.currentTimeMillis() > contacts.expiresAt) {
                 contactChoice = null
                 addAssistantReply("That selection expired. Please repeat the contact command.")
-                return true
+                return false
             }
             val index = LocalBrain.ordinal(input)
-            if (index == null || index !in 1..contacts.contacts.size) {
+            if (index == null) {
+                contactChoice = null
+                return false
+            }
+            if (index !in 1..contacts.contacts.size) {
                 addAssistantReply("Please say a valid number from 1 to " + contacts.contacts.size + ".")
                 return true
             }
@@ -564,10 +570,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (System.currentTimeMillis() > numbers.expiresAt) {
                 numberChoice = null
                 addAssistantReply("That selection expired. Please repeat the command.")
-                return true
+                return false
             }
             val index = LocalBrain.ordinal(input)
-            if (index == null || index !in 1..numbers.contact.numbers.size) {
+            if (index == null) {
+                numberChoice = null
+                return false
+            }
+            if (index !in 1..numbers.contact.numbers.size) {
                 addAssistantReply("Please say a valid number from 1 to " + numbers.contact.numbers.size + ".")
                 return true
             }
