@@ -36,9 +36,8 @@ internal object ContactRepository {
                 val id = cursor.getLong(idIndex)
                 val name = cursor.getString(nameIndex)?.trim().orEmpty()
                 val number = cursor.getString(numberIndex)?.trim().orEmpty()
-                val normalizedName = normalize(name)
-                val exactPrefixMatch = normalizedName == wanted || normalizedName.startsWith(wanted + " ")
-                if (exactPrefixMatch && number.isNotBlank()) {
+                val exactNameMatch = ContactSelectionPolicy.isExactNameMatch(name, query)
+                if (exactNameMatch && number.isNotBlank()) {
                     val entry = grouped.getOrPut(id) { name to linkedSetOf() }
                     entry.second.add(number)
                 }
