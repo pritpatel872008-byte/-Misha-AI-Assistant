@@ -11,12 +11,14 @@ Misha is a native Android assistant built with Kotlin and Jetpack Compose. It us
 
 ## Implemented features
 
+- First-run setup gate requests microphone, contacts, camera/flashlight, phone-call, notification, and display-over-other-apps permissions before opening the assistant.
 - English-first voice input (en-US) and English text-to-speech (en-US).
+- “Hey Misha” listener runs as a visible microphone foreground service with an ongoing notification. When the phrase is recognized, it displays a floating popup; tapping it opens Misha and starts command listening.
 - Dark/light Compose interface with animated voice orb, chat, quick actions, history, and settings.
 - Local command parsing for flashlight, app launch, calling, messaging, battery, date/time, and web search.
 - Flashlight on/off/status with runtime camera permission.
 - Supported app launching: WhatsApp, WhatsApp Business, Telegram, YouTube, Chrome, Messages, Signal, Messenger, Maps, Gmail, Play Store, Camera, Phone, and Android Settings.
-- Contact matching by exact name or name prefix. Only matching contacts are listed; one match is selected automatically; multiple matches are numbered in the order shown.
+- Contact matching is exact-name only (case-insensitive, punctuation/spacing normalized). A request for “Rahul” does not match “Rahul Bhai” or “Rahul Patel”. No exact match means “Contact not found”; one exact match is selected automatically; duplicate exact-name contacts are numbered.
 - Multiple phone numbers for one contact are presented as numbered choices. A numeric reply selects only from the current, expiring choice list.
 - Calling uses Android's call permission. If permission is denied, Misha opens the dialer instead of placing the call.
 - Calling and every messaging command use the same contact-selection policy: one match is selected automatically; multiple matching contacts are listed as 1, 2, 3, and the spoken number selects only that listed contact. If that contact has multiple phone numbers, Misha asks which number to use.
@@ -57,9 +59,9 @@ The APK is written to app/build/outputs/apk/debug/app-debug.apk inside the Andro
 
 ## Platform and privacy limits
 
-- Android microphone recognition starts only after the user taps Speak; this project does not run an always-on wake-word service.
+- The wake phrase uses Android's installed speech-recognition provider with offline preference; it is not a dedicated always-on local wake-word model. Recognition reliability and offline availability depend on the device's speech service. Android may stop microphone services after force-stop, reboot, or aggressive battery management; open Misha again to restart it.
 - Android requires a visible permission prompt for microphone, contacts, camera/flashlight, and direct phone calls.
 - Messaging apps own their send flow. Misha can prepare or hand off a message, but the user must review and send it inside the destination app.
 - Generic third-party messaging apps do not expose a universal public API for selecting a recipient and sending automatically. Telegram, Signal, and Messenger hand off message text to their share interface; the user chooses the conversation and taps Send.
-- Call screening, silent recording, background microphone monitoring, and automated screen capture are not enabled. They require additional Android roles, foreground-service flows, or explicit system capture consent and are not silently enabled.
+- Misha can initiate outgoing calls with the required permission. It does not yet answer carrier calls or speak to callers as an AI. Answering requires Misha to become the user's default dialer and implement complete incoming/ongoing call screens; standard third-party apps also cannot freely inject TTS into cellular-call audio. Call screening, silent recording, and automated screen capture are not enabled.
 - Contacts are read on demand and are not uploaded or stored by Misha. Search terms are sent to the configured search provider. Chat history is stored locally and can be cleared from Settings.
