@@ -54,7 +54,15 @@ class WakeWordService : Service() {
             stopSelf()
             return
         }
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+        val speechEngine = if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        ) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        }
+        recognizer = speechEngine.apply {
             setRecognitionListener(listener)
         }
         startRecognition()
