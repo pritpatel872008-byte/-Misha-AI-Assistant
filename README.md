@@ -2,10 +2,17 @@
 
 Misha is a native Android assistant built with Kotlin and Jetpack Compose. It uses deterministic local command parsing, Android speech recognition/text-to-speech, and Android intents. No LLM or AI API is used.
 
+## Backend
+
+- Production API: https://misha-search-backend.vercel.app
+- Health: /api/health
+- Search: /api/search?q=your%20query
+- Search provider: Wikipedia Search API (key-free encyclopedia search, not a complete general web index).
+
 ## Implemented features
 
 - English-first voice input (en-US) and English text-to-speech (en-US).
-- Premium dark/light Compose interface with voice orb, chat, quick actions, history, and settings.
+- Dark/light Compose interface with animated voice orb, chat, quick actions, history, and settings.
 - Local command parsing for flashlight, app launch, calling, messaging, battery, date/time, and web search.
 - Flashlight on/off/status with runtime camera permission.
 - Supported app launching: WhatsApp, WhatsApp Business, Telegram, YouTube, Chrome, Messages, Signal, Messenger, Maps, Gmail, Play Store, Camera, Phone, and Android Settings.
@@ -14,7 +21,7 @@ Misha is a native Android assistant built with Kotlin and Jetpack Compose. It us
 - Calling uses Android's call permission. If permission is denied, Misha opens the dialer instead of placing the call.
 - WhatsApp opens the selected phone number's chat with a prefilled message. SMS opens the compose screen. Telegram, Signal, and Messenger receive a share handoff where supported.
 - Misha never silently sends a message. Review the recipient and text in the target app, then tap Send.
-- Online search calls the Misha Vercel API and falls back to Wikipedia's public search API if the backend is unavailable. Results show source links. This is encyclopedia-focused search, not a full Google/Bing web index.
+- Online search calls the Misha Vercel API and falls back to Wikipedia's public search API if the backend is unavailable. Results show source links.
 - Local chat history and appearance/voice settings are stored on-device using SharedPreferences.
 
 ## Voice command examples
@@ -33,11 +40,11 @@ Misha is a native Android assistant built with Kotlin and Jetpack Compose. It us
 - "Check battery"
 - "What time is it?"
 
-For contact selection, if multiple matching contacts exist, Misha lists only those matches (for example Rahul and Rahul Bhai) and asks for a number. Say "2" or "number two" to select the second displayed contact. If a selected contact has multiple phone numbers, Misha asks you to choose a number too.
+If multiple matching contacts exist, Misha lists only those matches (for example Rahul and Rahul Bhai) and asks for a number. Say "2" or "number two" to select the second displayed contact. If a selected contact has multiple phone numbers, Misha asks you to choose a number too.
 
 ## Build
 
-Open the android directory in Android Studio with JDK 17 and Android SDK 35. The GitHub Actions workflow runs unit tests and assembles a debug APK.
+Open the android directory in Android Studio with JDK 17 and Android SDK 35. GitHub Actions runs backend smoke tests, unit tests, and assembles a debug APK.
 
     cd android
     gradle :app:testDebugUnitTest
