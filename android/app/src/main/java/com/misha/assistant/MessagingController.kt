@@ -19,8 +19,9 @@ internal class MessagingController(
     private var expiresAt = 0L
 
     fun resolve(message: MessageRequest) {
+        clear()
         request = message
-        val query = message.recipient.lowercase(Locale.ROOT).filter(Char::isLetterOrDigit)
+        val query = message.recipient.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
         val grouped = linkedMapOf<Long, Pair<String, MutableList<String>>>()
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
