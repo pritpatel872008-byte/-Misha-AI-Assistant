@@ -19,7 +19,8 @@ Misha is a native Android assistant built with Kotlin and Jetpack Compose. It us
 - Contact matching by exact name or name prefix. Only matching contacts are listed; one match is selected automatically; multiple matches are numbered in the order shown.
 - Multiple phone numbers for one contact are presented as numbered choices. A numeric reply selects only from the current, expiring choice list.
 - Calling uses Android's call permission. If permission is denied, Misha opens the dialer instead of placing the call.
-- WhatsApp opens the selected phone number's chat with a prefilled message. SMS opens the compose screen. Telegram, Signal, and Messenger receive a share handoff where supported.
+- Calling and every messaging command use the same contact-selection policy: one match is selected automatically; multiple matching contacts are listed as 1, 2, 3, and the spoken number selects only that listed contact. If that contact has multiple phone numbers, Misha asks which number to use.
+- WhatsApp and WhatsApp Business open the selected number's chat with a prefilled message. SMS opens the selected number's compose screen. Telegram uses its documented phone-number deep link and pre-fills the draft when the contact is discoverable by phone number. Signal and Messenger receive a package-targeted share handoff; those apps may still ask you to choose the conversation because they do not provide Misha a documented public phone-number-to-chat handoff.
 - Misha never silently sends a message. Review the recipient and text in the target app, then tap Send.
 - Online search calls the Misha Vercel API and falls back to Wikipedia's public search API if the backend is unavailable. Results show source links.
 - Local chat history and appearance/voice settings are stored on-device using SharedPreferences.
@@ -36,6 +37,8 @@ Misha is a native Android assistant built with Kotlin and Jetpack Compose. It us
 - "Call Rahul"
 - "Send a message to Rahul on WhatsApp saying Hello"
 - "Message Rahul on Telegram: I am coming"
+- "Message Rahul on Signal saying I am on my way"
+- "Message Rahul on Messenger saying Please call me"
 - "Message Rahul saying Call me"
 - "Check battery"
 - "What time is it?"
