@@ -119,7 +119,7 @@ internal object LocalBrain {
             "what time" in q || q == "time" -> "The time is " + SimpleDateFormat("hh:mm a", Locale.US).format(Date()) + "."
             "what date" in q || "today's date" in q -> "Today is " + SimpleDateFormat("EEEE, d MMMM yyyy", Locale.US).format(Date()) + "."
             "help" in q || "what can you do" in q ->
-                "I can open supported apps, search online, call contacts, prepare messages, control the flashlight, and check battery status. Try: Open YouTube; Search the web for Android security; Call Rahul; Turn on the flashlight."
+                "I can open supported apps, search online, call contacts, prepare messages, control the flashlight, and check battery status. Try: Open YouTube; Search the web for Android security; Call [exact contact name]; Turn on the flashlight."
             "thank" in q -> "You're welcome!"
             else -> "I can handle phone commands and basic offline conversation. For current information, say: Search the web for your question."
         }
