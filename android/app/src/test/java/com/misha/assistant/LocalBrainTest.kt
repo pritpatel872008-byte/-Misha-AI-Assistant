@@ -36,4 +36,49 @@ class LocalBrainTest {
         assertEquals(3, LocalBrain.ordinal("3"))
         assertEquals(1, LocalBrain.ordinal("first"))
     }
+    @Test fun messageRecipientResolutionIsSharedAcrossMessagingApps() {
+        val commands = listOf(
+            "Message Rahul on WhatsApp saying Hello" to "WhatsApp",
+            "Message Rahul on WhatsApp Business saying Hello" to "WhatsApp Business",
+            "Message Rahul on Telegram saying Hello" to "Telegram",
+            "Message Rahul on Signal saying Hello" to "Signal",
+            "Message Rahul on Messenger saying Hello" to "Messenger",
+            "Message Rahul on Messages saying Hello" to "Messages"
+        )
+        commands.forEach { (input, app) ->
+            assertEquals(
+                MishaCommand.Message("Rahul", app, "Hello"),
+                LocalBrain.parse(input)
+            )
+        }
+    }
+
+    @Test fun supportedMessagingAppsHaveExplicitRoutes() {
+        assertEquals(MessageAppRoute.WHATSAPP, MessageAppRouter.routeFor("WhatsApp"))
+        assertEquals(MessageAppRoute.WHATSAPP_BUSINESS, MessageAppRouter.routeFor("WhatsApp Business"))
+        assertEquals(MessageAppRoute.TELEGRAM, MessageAppRouter.routeFor("Telegram"))
+        assertEquals(MessageAppRoute.SIGNAL, MessageAppRouter.routeFor("Signal"))
+        assertEquals(MessageAppRoute.MESSENGER, MessageAppRouter.routeFor("Messenger"))
+        assertEquals(MessageAppRoute.SMS, MessageAppRouter.routeFor("Google Messages"))
+    }
+
+    @Test fun telegramDeepLinkContainsSelectedNumberAndDraftText() {
+        assertEquals(
+            "tg://resolve?phone=%2B919876543210&text=Hello+Rahul",
+            MessageAppRouter.telegramChatUri("+919876543210", "Hello Rahul")
+        )
+        assertEquals(null, MessageAppRouter.telegramChatUri("123", "Hello"))
+    }
+
+    @Test fun contactSelectionAutomaticallySelectsOneAndNumbersMultipleMatches() {
+        val rahul = ContactMatch(1L, "Rahul", listOf("+919876543210"))
+        val rahulBhai = ContactMatch(2L, "Rahul Bhai", listOf("+919876543211"))
+        assertEquals(ContactResolution.Single(rahul), ContactSelectionPolicy.resolve(listOf(rahul)))
+        assertEquals(
+            ContactResolution.Multiple(listOf(rahul, rahulBhai)),
+            ContactSelectionPolicy.resolve(listOf(rahul, rahulBhai))
+        )
+        assertEquals(ContactResolution.NoMatch, ContactSelectionPolicy.resolve(emptyList()))
+    }
+
 }
