@@ -2,6 +2,9 @@ package com.misha.assistant
 
 import android.Manifest
 import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -30,6 +33,9 @@ import java.util.Locale
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val brain = LocalBrain()
+    private val searchClient by lazy { SearchClient(BuildConfig.MISHA_BACKEND_URL) }
+    private data class LaunchOption(val label: String, val packageName: String)
+    private var pendingApps: List<LaunchOption> = emptyList()
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -59,6 +65,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private val messages = mutableStateListOf<Pair<Boolean, String>>()
+    private val searchResults = mutableStateListOf<SearchResult>()
     private var draft by mutableStateOf("")
     private var listening by mutableStateOf(false)
     private var errorText by mutableStateOf("")
@@ -88,6 +95,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                 Surface(color = if (item.first) Color(0xFF12435A) else Color(0xFF101D30), shape = RoundedCornerShape(14.dp)) { Text(item.second, color = Color.White, modifier = Modifier.padding(12.dp)) }
                             }
                         }
+                        if (searchResults.isNotEmpty()) {
+                            item { Text("WEB SEARCH RESULTS", color = Color(0xFF43DDF5), fontSize = 12.sp) }
+                            items(searchResults) { result ->
+                                Surface(color = Color(0xFF101D30), shape = RoundedCornerShape(12.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                        Text(result.title, color = Color.White, fontSize = 16.sp)
+                                        Text(result.snippet, color = Color(0xFFB9C8D9), fontSize = 12.sp)
+                                        Text("Source: ${result.source}", color = Color(0xFF43DDF5), fontSize = 11.sp)
+                                        TextButton(onClick = { openWebResult(result.url) }) { Text("Open source") }
+                                    }
+                                }
+                            }
+                        }
                     }
                     if (errorText.isNotBlank()) Text(errorText, color = Color(0xFFFF9B9B), fontSize = 12.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -105,7 +125,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun processCommand(raw: String) {
         val command = raw.trim()
         if (command.isEmpty()) return
+        if (handlePendingAppSelection(command)) return
         if (messagingController.handleSelection(command)) return
+        val searchQuery = SearchQueryParser.parse(command)
+        if (searchQuery != null) {
+            messages.add(true to command)
+            runWebSearch(searchQuery)
+            return
+        }
+        val appName = AppCommandParser.parse(command)
+        if (appName != null) {
+            messages.add(true to command)
+            openInstalledApp(appName)
+            return
+        }
         val messageRequest = MessageCommandParser.parse(command)
         if (messageRequest != null) {
             messages.add(true to command)
@@ -128,6 +161,89 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             LocalBrain.TorchAction.STATUS -> addExchange(command, if (torchOn) "The flashlight is on." else "The flashlight is off.")
             null -> addExchange(command, brain.reply(command))
         }
+    }
+
+    private fun runWebSearch(query: String) {
+        addReply("Searching the web for: $query")
+        Thread {
+            try {
+                val results = searchClient.search(query)
+                runOnUiThread {
+                    searchResults.clear()
+                    searchResults.addAll(results)
+                    addReply(if (results.isEmpty()) "I couldn't find matching results. Try different keywords." else "I found ${results.size} results. Open a source to read more.")
+                }
+            } catch (_: Exception) {
+                runOnUiThread { addReply("Online search is unavailable right now. Check your internet connection and try again.") }
+            }
+        }.start()
+    }
+
+    private fun openWebResult(url: String) {
+        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        catch (_: ActivityNotFoundException) { addReply("No browser is available to open this result.") }
+    }
+
+    private fun openInstalledApp(requestedName: String) {
+        val name = requestedName.lowercase(Locale.ROOT).trim()
+        try {
+            val directIntent = when (name) {
+                "settings", "system settings" -> Intent(Settings.ACTION_SETTINGS)
+                "camera" -> Intent("android.media.action.IMAGE_CAPTURE")
+                "phone", "dialer" -> Intent(Intent.ACTION_DIAL)
+                "browser", "internet" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
+                else -> null
+            }
+            if (directIntent != null) {
+                if (directIntent.resolveActivity(packageManager) != null) startActivity(directIntent)
+                else addReply("That app or system screen is not available on this phone.")
+                return
+            }
+            val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            @Suppress("DEPRECATION")
+            val options = packageManager.queryIntentActivities(launcher, 0)
+                .mapNotNull { info ->
+                    val label = info.loadLabel(packageManager)?.toString().orEmpty()
+                    val packageName = info.activityInfo?.packageName.orEmpty()
+                    if (label.isNotBlank() && packageName.isNotBlank() && label.contains(requestedName, ignoreCase = true))
+                        LaunchOption(label, packageName) else null
+                }
+                .distinctBy { it.packageName }
+                .sortedBy { it.label.lowercase(Locale.ROOT) }
+            when (options.size) {
+                0 -> addReply("I couldn't find an installed app matching $requestedName.")
+                1 -> launchPackage(options.first())
+                else -> {
+                    pendingApps = options
+                    addReply("I found multiple matching apps. Say or type a number:\n" +
+                        options.mapIndexed { index, option -> "${index + 1}. ${option.label}" }.joinToString("\n"))
+                }
+            }
+        } catch (_: Exception) {
+            addReply("I couldn't open $requestedName. Please check that it is installed.")
+        }
+    }
+
+    private fun handlePendingAppSelection(input: String): Boolean {
+        if (pendingApps.isEmpty()) return false
+        val value = input.trim().lowercase(Locale.ROOT).removePrefix("number ").removePrefix("option ").removeSuffix(".")
+        if (value == "cancel") { pendingApps = emptyList(); addReply("App launch cancelled."); return true }
+        val choice = value.toIntOrNull() ?: when (value) { "one" -> 1; "two" -> 2; "three" -> 3; "four" -> 4; "five" -> 5; else -> null }
+        if (choice == null || choice !in 1..pendingApps.size) {
+            addReply("Please choose a number from 1 to ${pendingApps.size}, or say cancel.")
+            return true
+        }
+        val selected = pendingApps[choice - 1]
+        pendingApps = emptyList()
+        launchPackage(selected)
+        return true
+    }
+
+    private fun launchPackage(option: LaunchOption) {
+        val launchIntent = packageManager.getLaunchIntentForPackage(option.packageName)
+        if (launchIntent == null) addReply("${option.label} is installed, but Android did not provide a launch action.")
+        else try { startActivity(launchIntent); addReply("Opening ${option.label}.") }
+        catch (_: Exception) { addReply("I couldn't launch ${option.label}.") }
     }
 
     private fun setTorch(enabled: Boolean): String {
@@ -169,7 +285,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         messages.add(true to user); messages.add(false to reply)
         if (ttsReady) tts?.speak(reply, TextToSpeech.QUEUE_FLUSH, null, "misha_reply")
     }
-    private fun addReply(reply: String) { messages.add(false to reply) }
+    private fun addReply(reply: String) {
+        messages.add(false to reply)
+        if (ttsReady) tts?.speak(reply, TextToSpeech.QUEUE_FLUSH, null, "misha_reply")
+    }
     override fun onInit(status: Int) {
         ttsReady = status == TextToSpeech.SUCCESS
         if (ttsReady) {
