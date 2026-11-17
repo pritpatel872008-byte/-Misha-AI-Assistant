@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var cameraManager: CameraManager? = null
     private var torchOn = false
     private var pendingTorchCommand: String? = null
+    private var pendingMessageRequest: MessageRequest? = null
+    private val messagingController by lazy { MessagingController(this, ::addReply) }
 
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) startListening() else addReply("Microphone permission was denied. You can type commands instead.")
@@ -47,6 +49,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             val reply = if (granted) setTorch(true) else "Camera permission was denied. I could not turn on the flashlight."
             addExchange(command, reply)
         }
+    }
+
+    private val contactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val request = pendingMessageRequest
+        pendingMessageRequest = null
+        if (granted && request != null) messagingController.resolve(request)
+        else addReply("Contacts permission was denied. Enable it in Android settings if you want Misha to find recipients.")
     }
 
     private val messages = mutableStateListOf<Pair<Boolean, String>>()
@@ -96,6 +105,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun processCommand(raw: String) {
         val command = raw.trim()
         if (command.isEmpty()) return
+        if (messagingController.handleSelection(command)) return
+        val messageRequest = MessageCommandParser.parse(command)
+        if (messageRequest != null) {
+            messages.add(true to command)
+            pendingMessageRequest = messageRequest
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                pendingMessageRequest = null
+                messagingController.resolve(messageRequest)
+            } else {
+                addReply("I need Contacts permission to find ${messageRequest.recipient}.")
+                contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+            }
+            return
+        }
         when (brain.torchAction(command)) {
             LocalBrain.TorchAction.ON -> {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) addExchange(command, setTorch(true))
