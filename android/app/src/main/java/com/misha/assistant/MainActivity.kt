@@ -802,7 +802,7 @@ private fun MishaHome(
                         Text("Contacts are read only when you ask Misha to call or prepare a message. Search queries go to the search provider. Microphone audio is handled by Android's speech-recognition service.", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                         Spacer(Modifier.height(10.dp))
                         Text("Platform limits", color = accent, fontWeight = FontWeight.Bold)
-                        Text("Always-on wake-word listening and automatic message sending are not enabled. Android requires explicit user action for these sensitive operations.", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                        Text("Hey Misha uses a visible microphone notification and the phone's installed speech-recognition service; offline availability depends on the device. It is not a dedicated local wake-word model. Misha can place calls, but cannot yet answer and speak as an AI on carrier calls. Android requires you to review and send messages yourself.", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                         TextButton(onClick = onClearHistory) {
                             Icon(Icons.Filled.Delete, null)
                             Spacer(Modifier.width(6.dp))
