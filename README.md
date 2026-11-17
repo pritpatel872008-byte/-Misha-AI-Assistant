@@ -36,16 +36,16 @@ Misha is a native Android assistant built with Kotlin and Jetpack Compose. It us
 - "Open YouTube"
 - "Open Settings"
 - "Search the web for Android security"
-- "Call Rahul"
-- "Send a message to Rahul on WhatsApp saying Hello"
-- "Message Rahul on Telegram: I am coming"
-- "Message Rahul on Signal saying I am on my way"
-- "Message Rahul on Messenger saying Please call me"
-- "Message Rahul saying Call me"
+- "Call [exact saved contact name]"
+- "Send a message to [exact saved contact name] on WhatsApp saying Hello"
+- "Message [exact saved contact name] on Telegram: I am coming"
+- "Message [exact saved contact name] on Signal saying I am on my way"
+- "Message [exact saved contact name] on Messenger saying Please call me"
+- "Message [exact saved contact name] saying Call me"
 - "Check battery"
 - "What time is it?"
 
-If multiple matching contacts exist, Misha lists only those matches (for example Rahul and Rahul Bhai) and asks for a number. Say "2" or "number two" to select the second displayed contact. If a selected contact has multiple phone numbers, Misha asks you to choose a number too.
+If more than one contact has the same exact normalized display name, Misha lists those duplicate entries and asks for a number. A shorter name never matches a longer contact name (for example, "Rahul" does not match "Rahul Bhai"). Say "2" or "number two" to select the second duplicate entry. If a selected contact has multiple phone numbers, Misha asks you to choose a number too.
 
 ## Build
 
