@@ -2,9 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: [main, full-app-implementation]
+    branches: [main, full-app-implementation, fix/background-voice-orb-and-commands]
   pull_request:
-    branches: [main]
+    branches: [main, misha-final-implementation]
   workflow_dispatch:
 
 permissions:
