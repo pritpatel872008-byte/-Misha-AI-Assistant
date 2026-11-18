@@ -376,7 +376,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun requestListening() {
-        stopService(Intent(this, WakeWordService::class.java))
+        val prefs = getSharedPreferences("misha_settings", MODE_PRIVATE)
+        if (prefs.getBoolean("setup_complete", false) && prefs.getBoolean("wake_word_enabled", true)) {
+            // Keep the microphone foreground service alive while the foreground activity
+            // owns speech capture. It can resume without starting a new background FGS.
+            startService(Intent(this, WakeWordService::class.java)
+                .setAction("com.misha.assistant.action.PAUSE_WAKE_WORD"))
+        } else {
+            stopService(Intent(this, WakeWordService::class.java))
+        }
         if (speechRecognizer == null) {
             addAssistantReply("Speech recognition is unavailable on this device. Please type your command.")
             return
