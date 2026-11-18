@@ -1,4 +1,9 @@
 module.exports = async function handler(_req, res) {
   res.setHeader("Cache-Control", "no-store");
-  return res.status(200).json({ ok: true, service: "misha-search-backend", aiApiEnabled: false, timestamp: new Date().toISOString() });
+  return res.status(200).json({
+    ok: true,
+    service: "misha-search-backend",
+    aiApiEnabled: false,
+    timestamp: new Date().toISOString()
+  });
 };

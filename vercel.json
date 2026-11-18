@@ -1,3 +1,7 @@
 {
-  "functions": { "api/search.js": { "maxDuration": 10 } }
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 10
+    }
+  }
 }
