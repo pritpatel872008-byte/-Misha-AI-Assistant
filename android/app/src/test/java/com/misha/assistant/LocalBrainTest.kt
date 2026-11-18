@@ -17,6 +17,25 @@ class LocalBrainTest {
         assertEquals(MishaCommand.OpenApp("YouTube"), LocalBrain.parse("Open YouTube"))
     }
 
+
+    @Test fun parsesCompoundOpenInstagramAndSearchCommand() {
+        assertEquals(
+            MishaCommand.OpenAppAndSearch("Instagram", "comedy videos"),
+            LocalBrain.parse("Open Instagram and search comedy videos")
+        )
+        assertEquals(
+            MishaCommand.OpenAppAndSearch("Instagram", "comedy videos"),
+            LocalBrain.parse("Open Instagram and search for comedy videos")
+        )
+    }
+
+    @Test fun parsesSearchInsideNamedApp() {
+        assertEquals(
+            MishaCommand.OpenAppAndSearch("YouTube", "lofi music"),
+            LocalBrain.parse("Search for lofi music on YouTube")
+        )
+    }
+
     @Test fun parsesCallingCommand() {
         assertEquals(MishaCommand.Call("Rahul"), LocalBrain.parse("Call Rahul"))
     }
