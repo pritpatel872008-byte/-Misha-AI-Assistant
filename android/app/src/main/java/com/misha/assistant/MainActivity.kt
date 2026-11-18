@@ -8,6 +8,8 @@ import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.content.IntentFilter
 import android.provider.MediaStore
 import android.provider.Settings
@@ -15,6 +17,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -134,6 +137,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var ttsReady = false
+    private var wakeGreetingPending = false
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var cameraManager: CameraManager? = null
     private var torchOn = false
     private var pendingTorch: Boolean? = null
@@ -227,7 +232,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
         if (intent.getBooleanExtra(WakeWordService.EXTRA_WAKE_WORD_TRIGGERED, false)) {
-            window.decorView.post { requestListening() }
+            wakeGreetingPending = true
+            maybeStartWakeGreeting()
         }
     }
 
@@ -235,8 +241,29 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(WakeWordService.EXTRA_WAKE_WORD_TRIGGERED, false)) {
-            requestListening()
+            wakeGreetingPending = true
+            maybeStartWakeGreeting()
         }
+    }
+
+    private fun maybeStartWakeGreeting() {
+        if (!wakeGreetingPending) return
+        if (!ttsReady) {
+            // If TTS initialization failed, still open the command listener.
+            if (textToSpeech == null) {
+                wakeGreetingPending = false
+                requestListening()
+            }
+            return
+        }
+        wakeGreetingPending = false
+        val result = textToSpeech?.speak(
+            "Yes, I'm listening. What can I do for you?",
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "misha_wake_greeting"
+        ) ?: TextToSpeech.ERROR
+        if (result == TextToSpeech.ERROR) requestListening()
     }
 
     private fun loadPreferences() {
@@ -282,7 +309,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         messages.add(ChatMessage(false, text))
         saveHistory()
         if (voiceReplies && ttsReady) {
-            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "misha_reply")
+            val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "misha_reply")
+            if (result == TextToSpeech.ERROR) mainHandler.postDelayed({ startWakeWordService() }, 400L)
+        } else {
+            mainHandler.postDelayed({ startWakeWordService() }, 400L)
         }
     }
 
@@ -302,6 +332,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
             }
             is MishaCommand.OpenApp -> openApp(command.appName)
+            is MishaCommand.OpenAppAndSearch -> openAppAndSearch(command.appName, command.query)
             is MishaCommand.Search -> performSearch(command.query)
             is MishaCommand.Call -> resolveContactAction(ContactAction(ContactActionType.CALL, command.contactName))
             is MishaCommand.Message -> resolveContactAction(
@@ -397,12 +428,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     else -> "Voice input failed (error " + error + "). Check microphone and Android speech recognition settings."
                 }
                 addAssistantReply(message)
-                startWakeWordService()
             }
             override fun onResults(results: Bundle?) {
                 listening = false
-                statusText = "READY • LOCAL MODE"
-                startWakeWordService()
+                statusText = "PROCESSING COMMAND"
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(::processCommand)
             }
             override fun onPartialResults(partialResults: Bundle?) = Unit
@@ -474,6 +503,47 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun openUrl(url: String) {
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
             .onFailure { addAssistantReply("I could not open that source link.") }
+    }
+
+    private fun openAppAndSearch(rawAppName: String, query: String) {
+        val appName = rawAppName.trim()
+        val normalized = appName.lowercase(Locale.ROOT)
+        val packageName = appPackages[normalized]
+        if (packageName == null) {
+            addAssistantReply("I can open $appName, but I do not have an in-app search route for it yet.")
+            openApp(appName)
+            return
+        }
+        if (packageManager.getLaunchIntentForPackage(packageName) == null) {
+            addAssistantReply("$appName is not installed on this phone.")
+            return
+        }
+        val searchUrl = when (normalized) {
+            "instagram" -> "https://www.instagram.com/explore/search/keyword/?q=" + Uri.encode(query)
+            "youtube" -> "https://www.youtube.com/results?search_query=" + Uri.encode(query)
+            "chrome" -> "https://www.google.com/search?q=" + Uri.encode(query)
+            else -> null
+        }
+        if (searchUrl == null) {
+            addAssistantReply("I can open $appName, but automatic in-app search is not configured for it yet.")
+            openApp(appName)
+            return
+        }
+        addAssistantReply("Opening $appName and searching for $query.")
+        mainHandler.postDelayed({
+            val searchIntent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl)).setPackage(packageName)
+            runCatching {
+                startActivity(searchIntent)
+            }.onFailure {
+                val launch = packageManager.getLaunchIntentForPackage(packageName)
+                if (launch != null) {
+                    runCatching { startActivity(launch) }
+                    addAssistantReply("$appName opened, but Android did not accept its direct search link. Please use the app's Search tab.")
+                } else {
+                    addAssistantReply("I could not open $appName.")
+                }
+            }
+        }, 650L)
     }
 
     private fun openApp(rawName: String) {
@@ -794,9 +864,34 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 statusText = "ENGLISH TTS NOT AVAILABLE"
             }
         }
+        if (ttsReady) {
+            textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) = Unit
+                override fun onDone(utteranceId: String?) {
+                    runOnUiThread {
+                        when (utteranceId) {
+                            "misha_wake_greeting" -> requestListening()
+                            "misha_reply" -> mainHandler.postDelayed({ startWakeWordService() }, 250L)
+                        }
+                    }
+                }
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) {
+                    runOnUiThread {
+                        if (utteranceId == "misha_wake_greeting") requestListening()
+                        else mainHandler.postDelayed({ startWakeWordService() }, 400L)
+                    }
+                }
+            })
+            maybeStartWakeGreeting()
+        } else if (wakeGreetingPending) {
+            wakeGreetingPending = false
+            requestListening()
+        }
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
         speechRecognizer?.destroy()
         textToSpeech?.stop()
         textToSpeech?.shutdown()
