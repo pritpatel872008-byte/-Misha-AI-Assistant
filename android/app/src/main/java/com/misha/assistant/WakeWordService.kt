@@ -170,6 +170,18 @@ class WakeWordService : Service() {
             }
             elevation = dp(12).toFloat()
         }
+        val orb = TextView(this).apply {
+            text = "M"
+            textSize = 27f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(34, 145, 220))
+                setStroke(dp(2), Color.rgb(105, 235, 255))
+            }
+            elevation = dp(8).toFloat()
+        }
         val heading = TextView(this).apply {
             text = "HEY, I'M MISHA"
             textSize = 17f
@@ -177,12 +189,16 @@ class WakeWordService : Service() {
             gravity = Gravity.CENTER
         }
         val subtitle = TextView(this).apply {
-            text = "Tap here to give your command"
+            text = "I'm opening your assistant…"
             textSize = 13f
             setTextColor(Color.rgb(145, 225, 245))
             gravity = Gravity.CENTER
             setPadding(0, dp(7), 0, 0)
         }
+        panel.addView(orb, LinearLayout.LayoutParams(dp(58), dp(58)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            bottomMargin = dp(9)
+        })
         panel.addView(heading)
         panel.addView(subtitle)
         panel.setOnClickListener { openAssistant() }
@@ -201,8 +217,14 @@ class WakeWordService : Service() {
         try {
             windowManager?.addView(panel, params)
             overlayView = panel
+            // Open the full voice surface automatically; the overlay remains tappable
+            // as a fallback if Android blocks a background activity launch.
+            handler.postDelayed({
+                if (popupShown) openAssistant()
+            }, 850L)
         } catch (_: Exception) {
             updateNotification("Hey Misha heard you. Tap the notification to open Misha.")
+            handler.postDelayed({ if (popupShown) openAssistant() }, 350L)
         }
     }
 
