@@ -234,7 +234,8 @@ class WakeWordService : Service() {
             putExtra(EXTRA_WAKE_WORD_TRIGGERED, true)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
-        stopSelf()
+        // Keep this foreground service alive. MainActivity pauses recognition while
+        // it captures the user's command, then resumes this same service after TTS.
         startActivity(open)
     }
 
