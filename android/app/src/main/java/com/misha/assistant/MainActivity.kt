@@ -116,6 +116,11 @@ private data class NumberChoiceState(
     val action: ContactAction,
     val expiresAt: Long
 )
+private data class PendingCallConfirmation(
+    val contactName: String,
+    val number: String,
+    val expiresAt: Long
+)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val messages = mutableStateListOf<ChatMessage>()
@@ -136,6 +141,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var pendingCallNumber: String? = null
     private var contactChoice: ContactChoiceState? = null
     private var numberChoice: NumberChoiceState? = null
+    private var pendingCallConfirmation: PendingCallConfirmation? = null
     private var screen by mutableStateOf("Assistant")
 
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -284,6 +290,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val text = raw.trim()
         if (text.isBlank()) return
         addUserMessage(text)
+        if (handlePendingCallConfirmation(text)) return
         if (handlePendingChoice(text)) return
 
         when (val command = LocalBrain.parse(text)) {
@@ -615,9 +622,40 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun executeContactAction(contact: ContactMatch, number: String, action: ContactAction) {
         when (action.type) {
-            ContactActionType.CALL -> requestCall(number, contact.name)
+            ContactActionType.CALL -> {
+                pendingCallConfirmation = PendingCallConfirmation(
+                    contact.name, number, System.currentTimeMillis() + 45_000L
+                )
+                addAssistantReply(
+                    "Selected " + contact.name + ", number ending " + number.filter(Char::isDigit).takeLast(4) + ". " +
+                        "I will not call yet. Say 'confirm call' to place the call, or 'cancel' to stop."
+                )
+            }
             ContactActionType.MESSAGE -> launchMessageApp(action.appName, contact.name, number, action.message)
         }
+    }
+
+    private fun handlePendingCallConfirmation(input: String): Boolean {
+        val pending = pendingCallConfirmation ?: return false
+        val normalized = input.lowercase(Locale.ROOT).trim().replace(Regex("[.!?]+$"), "")
+        if (System.currentTimeMillis() > pending.expiresAt) {
+            pendingCallConfirmation = null
+            addAssistantReply("Call confirmation expired. No call was placed.")
+            return true
+        }
+        if (normalized in setOf("confirm call", "yes call", "call now", "confirm")) {
+            pendingCallConfirmation = null
+            requestCall(pending.number, pending.contactName)
+            return true
+        }
+        if (normalized in setOf("cancel", "no", "stop", "don't call", "do not call")) {
+            pendingCallConfirmation = null
+            addAssistantReply("Cancelled. No call was placed.")
+            return true
+        }
+        pendingCallConfirmation = null
+        addAssistantReply("I cancelled the pending call because that was not a clear confirmation. No call was placed.")
+        return false
     }
 
     private fun requestCall(number: String, name: String) {
