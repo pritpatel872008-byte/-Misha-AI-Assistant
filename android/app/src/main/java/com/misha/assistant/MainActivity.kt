@@ -512,6 +512,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private val appPackages = mapOf(
+        "instagram" to "com.instagram.android",
         "whatsapp" to "com.whatsapp",
         "whatsapp business" to "com.whatsapp.w4b",
         "telegram" to "org.telegram.messenger",
