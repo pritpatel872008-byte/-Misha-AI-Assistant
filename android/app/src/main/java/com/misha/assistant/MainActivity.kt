@@ -175,7 +175,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             messages.add(ChatMessage(false, "Hello! I'm Misha. I can open apps, search online, call contacts, prepare messages, and control your phone."))
         }
         if (SpeechRecognizer.isRecognitionAvailable(this)) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+            speechRecognizer = createPreferredSpeechRecognizer()
         }
 
         setContent {
@@ -350,6 +350,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun createPreferredSpeechRecognizer(): SpeechRecognizer {
+        return if (
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        ) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        }
+    }
+
     private fun startListening() {
         val recognizer = speechRecognizer ?: return
         recognizer.setRecognitionListener(object : RecognitionListener {
@@ -366,7 +377,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             override fun onError(error: Int) {
                 listening = false
-                statusText = "READY • LOCAL MODE"
+                statusText = "VOICE INPUT ERROR"
+                val message = when (error) {
+                    SpeechRecognizer.ERROR_AUDIO -> "Microphone audio error. Close other apps using the microphone, then try again."
+                    SpeechRecognizer.ERROR_CLIENT -> "Voice input was interrupted. Tap the microphone and try again."
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission is missing. Enable it in Android app settings."
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Speech service could not connect. Check internet or install an offline English speech pack."
+                    SpeechRecognizer.ERROR_NO_MATCH -> "I could not understand that. Please speak clearly in English and try again."
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "The microphone is busy. Wait a moment and try again."
+                    SpeechRecognizer.ERROR_SERVER -> "Android speech service failed. Try again or update Google speech services."
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "I did not hear speech. Tap the microphone and speak after the listening indicator appears."
+                    else -> "Voice input failed (error " + error + "). Check microphone and Android speech recognition settings."
+                }
+                addAssistantReply(message)
                 startWakeWordService()
             }
             override fun onResults(results: Bundle?) {
@@ -380,9 +403,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-US")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Misha in English")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak clearly to Misha in English")
         }
         listening = true
         try {
